@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import math
 import torch.optim as optim
+
+device = torch.device("cuda")
 input_fh = open("data/input.txt","r")
 lookup_table = dict()
 reverse_lookup_table = dict()
@@ -76,7 +78,7 @@ class MultiHeadSelfAttention(nn.Module):
 
         # Masks for preventing peeking into future tokens
 
-        mask = torch.tril(torch.ones(T,T)).unsqueeze(0).unsqueeze(0)
+        mask = torch.tril(torch.ones(T,T)).unsqueeze(0).unsqueeze(0).to(device)
         attention_score = attention_score.masked_fill(mask == 0, float('-inf'))
 
         attention_weights = torch.softmax(attention_score,-1)
@@ -135,17 +137,17 @@ testString = "T"
 # attention = MultiHeadSelfAttention()
 # after_self_attention = attention(output)
 # print("After Attention : ",after_self_attention)
-model = Transformer()
+model = Transformer().to(device)
 optimizer = optim.Adam(model.parameters(),lr=1e-4)
 loss_fn = nn.CrossEntropyLoss()
 text = open("data/input.txt").read()
 def get_batch(text, block_size=128):
     # Random batch of sequence-length tokens and targets (shifted by 1)
     ix = torch.randint(0, len(text) - block_size - 1, (1,))
-    x = torch.tensor([lookup_table[c] for c in text[ix:ix+block_size]])
-    y = torch.tensor([lookup_table[c] for c in text[ix+1:ix+block_size+1]])
+    x = torch.tensor([lookup_table[c] for c in text[ix:ix+block_size]]).to(device)
+    y = torch.tensor([lookup_table[c] for c in text[ix+1:ix+block_size+1]]).to(device)
     return x.unsqueeze(0), y.unsqueeze(0)
-for step in range(1000):
+for step in range(15000):
     x_batch, y_batch = get_batch(text)
     logits = model(x_batch)
     B, T, V = logits.shape
@@ -160,11 +162,14 @@ for step in range(1000):
 model.eval()
 
 for i in range(127):
-    inputTensor = torch.tensor([lookup_table[c] for c in testString]).unsqueeze(0)
+    inputTensor = torch.tensor([lookup_table[c] for c in testString]).unsqueeze(0).to(device)
     logits = model(inputTensor)
-    token = torch.argmax(logits,3)
+    logits = logits[0,-1,:]
+    token = torch.argmax(logits)
+    print(token)
     char_tkn = reverse_lookup_table[token.item()]
     testString += char_tkn
 
     # torch.argmax(logits)
 
+print(testString)
