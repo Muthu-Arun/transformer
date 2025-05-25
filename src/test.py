@@ -141,12 +141,12 @@ model = Transformer().to(device)
 optimizer = optim.Adam(model.parameters(),lr=1e-4)
 loss_fn = nn.CrossEntropyLoss()
 text = open("data/input.txt").read()
-def get_batch(text, block_size=128):
-    # Random batch of sequence-length tokens and targets (shifted by 1)
-    ix = torch.randint(0, len(text) - block_size - 1, (1,))
-    x = torch.tensor([lookup_table[c] for c in text[ix:ix+block_size]]).to(device)
-    y = torch.tensor([lookup_table[c] for c in text[ix+1:ix+block_size+1]]).to(device)
-    return x.unsqueeze(0), y.unsqueeze(0)
+def get_batch(text, block_size=128, batch_size=32):
+    ix = torch.randint(0, len(text) - block_size - 1, (batch_size,))
+    x = torch.stack([torch.tensor([lookup_table[c] for c in text[i:i+block_size]]) for i in ix]).to(device)
+    y = torch.stack([torch.tensor([lookup_table[c] for c in text[i+1:i+block_size+1]]) for i in ix]).to(device)
+    return x, y
+
 for step in range(15000):
     x_batch, y_batch = get_batch(text)
     logits = model(x_batch)
