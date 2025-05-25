@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import math
-
+import torch.optim as optim
 input_fh = open("data/input.txt","r")
 lookup_table = dict()
 reverse_lookup_table = dict()
@@ -68,7 +68,7 @@ class MultiHeadSelfAttention(nn.Module):
     def forward(self,x : torch.Tensor):
         B,T,D = x.size()
         qkv = self.qkv_projection(x)
-        print(qkv.size())
+        # print(qkv.size())
         qkv = qkv.reshape(B,T,3,self.num_heads,self.head_dim)
         qkv = qkv.permute(2,0,3,1,4)
         q,k,v = qkv[0],qkv[1],qkv[2]
@@ -85,12 +85,86 @@ class MultiHeadSelfAttention(nn.Module):
 
         attention_output = attention_output.transpose(1,2).contiguous().reshape(B,T,D)
         return self.out_projection(attention_output)
-embeddingLayer = Embedding()
-testString = "hello im"
-tokens = [lookup_table[c] for c in testString]
-inputTensor = torch.tensor(tokens).unsqueeze(0)
-output = embeddingLayer(inputTensor)
-print(output)
-attention = MultiHeadSelfAttention()
-after_self_attention = attention(output)
-print("After Attention : ",after_self_attention)
+
+class DecoderBlock(nn.Module):
+    def __init__(self,dmodel = 512, num_heads = 8, ff_hidden_dim = 2048, dropout = 0.1):
+        super().__init__()
+        self.self_attention = MultiHeadSelfAttention()
+        self.norm1 = nn.LayerNorm(dmodel)
+        self.norm2 = nn.LayerNorm(dmodel)
+        self.feed_forward = nn.Sequential(
+            nn.Linear(dmodel,ff_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(ff_hidden_dim,dmodel),
+            
+        )
+        self.dropout = nn.Dropout(dropout)
+    def forward(self,x : torch.Tensor):
+            attention_out = self.self_attention(self.norm1(x))
+            x = x + self.dropout(attention_out)
+
+            ff_out = self.feed_forward(self.norm2(x))
+            x = x + self.dropout(ff_out)
+
+            return x
+
+
+class Transformer(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.embedding = Embedding()
+        self.decoders = nn.Sequential(*[DecoderBlock() for _ in range(6)])
+        self.layernorm = nn.LayerNorm(dmodel)
+        self.lm_head = nn.Linear(dmodel,vocab_size)
+    
+    def forward(self,x : torch.Tensor):
+        x = self.embedding(x)
+        x = self.decoders(x)
+        x = self.layernorm(x)
+        logits = self.lm_head(x)
+        return logits
+    
+# embeddingLayer = Embedding()
+testString = "T"
+# tokens = [lookup_table[c] for c in testString]
+# inputTensor = torch.tensor(tokens).unsqueeze(0)
+
+
+# output = embeddingLayer(inputTensor)
+# print(output)
+# attention = MultiHeadSelfAttention()
+# after_self_attention = attention(output)
+# print("After Attention : ",after_self_attention)
+model = Transformer()
+optimizer = optim.Adam(model.parameters(),lr=1e-4)
+loss_fn = nn.CrossEntropyLoss()
+text = open("data/input.txt").read()
+def get_batch(text, block_size=128):
+    # Random batch of sequence-length tokens and targets (shifted by 1)
+    ix = torch.randint(0, len(text) - block_size - 1, (1,))
+    x = torch.tensor([lookup_table[c] for c in text[ix:ix+block_size]])
+    y = torch.tensor([lookup_table[c] for c in text[ix+1:ix+block_size+1]])
+    return x.unsqueeze(0), y.unsqueeze(0)
+for step in range(1000):
+    x_batch, y_batch = get_batch(text)
+    logits = model(x_batch)
+    B, T, V = logits.shape
+    loss = loss_fn(logits.view(B*T, V), y_batch.view(B*T))
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    if step % 100 == 0:
+        print(f"Step {step} | Loss: {loss.item():.4f}")
+# model.forward(inputTensor)
+model.eval()
+
+for i in range(127):
+    inputTensor = torch.tensor([lookup_table[c] for c in testString]).unsqueeze(0)
+    logits = model(inputTensor)
+    token = torch.argmax(logits,3)
+    char_tkn = reverse_lookup_table[token.item()]
+    testString += char_tkn
+
+    # torch.argmax(logits)
+
