@@ -138,7 +138,7 @@ testString = "T"
 # after_self_attention = attention(output)
 # print("After Attention : ",after_self_attention)
 model = Transformer().to(device)
-optimizer = optim.Adam(model.parameters(),lr=1e-4)
+optimizer = optim.AdamW(model.parameters(),lr=1e-4)
 loss_fn = nn.CrossEntropyLoss()
 text = open("data/input.txt").read()
 def get_batch(text, block_size=128, batch_size=32):
