@@ -147,7 +147,7 @@ def get_batch(text, block_size=128, batch_size=32):
     y = torch.stack([torch.tensor([lookup_table[c] for c in text[i+1:i+block_size+1]]) for i in ix]).to(device)
     return x, y
 
-for step in range(15000):
+for step in range(5000):
     x_batch, y_batch = get_batch(text)
     logits = model(x_batch)
     B, T, V = logits.shape
@@ -173,3 +173,4 @@ for i in range(127):
     # torch.argmax(logits)
 
 print(testString)
+torch.save(model.state_dict(),"first_iter.pth")
