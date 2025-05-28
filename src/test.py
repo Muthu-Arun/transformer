@@ -3,7 +3,7 @@ import torch.nn as nn
 import math
 import torch.optim as optim
 
-device = torch.device("cuda")
+device = torch.device("cuda"if torch.cuda.is_available() else "cpu")
 input_fh = open("data/input.txt","r")
 lookup_table = dict()
 reverse_lookup_table = dict()
@@ -49,12 +49,13 @@ class Embedding(nn.Module):
     def __init__(self):
        super().__init__()
        self.token_embedding = nn.Embedding(vocab_size,dmodel)
-       self.pos_embedding = PositionEmbedding()
+       self.pos_embedding = nn.Embedding(max_len,dmodel)
     
     def forward(self,x : torch.Tensor):
+       B, T = x.shape
        x = self.token_embedding(x)
     #    print(x)
-       x = self.pos_embedding(x)
+       x += self.pos_embedding(torch.arange(T,device=device))
     #    print(x)
        return x
 
