@@ -28,7 +28,7 @@ print(reverse_lookup_table)
 
 vocab_size = len(char_set)
 dmodel = 512
-max_len = 128
+max_len = 256
 
 class PositionEmbedding(nn.Module):
     def __init__(self):
@@ -142,7 +142,7 @@ model = Transformer().to(device)
 optimizer = optim.AdamW(model.parameters(),lr=1e-4)
 loss_fn = nn.CrossEntropyLoss()
 text = open("data/input.txt").read()
-def get_batch(text, block_size=128, batch_size=32):
+def get_batch(text, block_size=256, batch_size=32):
     ix = torch.randint(0, len(text) - block_size - 1, (batch_size,))
     x = torch.stack([torch.tensor([lookup_table[c] for c in text[i:i+block_size]]) for i in ix]).to(device)
     y = torch.stack([torch.tensor([lookup_table[c] for c in text[i+1:i+block_size+1]]) for i in ix]).to(device)
@@ -162,7 +162,7 @@ for step in range(5000):
 # model.forward(inputTensor)
 model.eval()
 
-for i in range(127):
+for i in range(255):
     inputTensor = torch.tensor([lookup_table[c] for c in testString]).unsqueeze(0).to(device)
     logits = model(inputTensor)
     logits = logits[0,-1,:]
