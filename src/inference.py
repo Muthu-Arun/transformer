@@ -1,30 +1,14 @@
 import torch
 import torch.nn as nn
 import math
+import pickle
+
 device = torch.device("cuda"if torch.cuda.is_available() else "cpu")
 input_fh = open("data/input.txt","r")
-lookup_table = dict()
-reverse_lookup_table = dict()
-char_set = set()
-lines = input_fh.readlines()
-print(len(lines))
-# print(lines)
-print(lines[:10])
-for line in lines:
-    for char in line:
-        char_set.add(char)
-print(char_set)
-print(len(char_set))
-tkn_id = 0
-for i in char_set:
-    
-    lookup_table[i] = tkn_id
-    reverse_lookup_table[tkn_id] = i
-    tkn_id += 1
-print(lookup_table)
-print(reverse_lookup_table)
+with open("data/vocabfile.pkl", "rb") as f:
+    lookup_table, reverse_lookup_table = pickle.load(f)
 
-vocab_size = len(char_set)
+vocab_size = len(lookup_table)
 dmodel = 512
 max_len = 256
 

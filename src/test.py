@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 import torch.optim as optim
-
+import pickle
 device = torch.device("cuda"if torch.cuda.is_available() else "cpu")
 input_fh = open("data/input.txt","r")
 lookup_table = dict()
@@ -175,3 +175,5 @@ for i in range(255):
 
 print(testString)
 torch.save(model.state_dict(),"first_iter.pth")
+with open("data/vocabfile.pkl","wb") as vf:
+    pickle.dump((lookup_table,reverse_lookup_table),vf)
