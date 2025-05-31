@@ -132,3 +132,17 @@ class EncoderBlock(nn.Module):
         x = x + self.dropout(ff_out)
 
         return x
+    
+class ViT(nn.Module):
+    def __init__(self,dmodel : int = PATCH_EMBD):
+        self.embedding = Embedding()
+        self.encoders = nn.Sequential(*[EncoderBlock() for _ in range(6)])
+        self.layernorm = nn.LayerNorm(dmodel)
+        self.vit_head = nn.Linear(dmodel,4)
+    
+    def forward(self, x : torch.Tensor):
+        x = self.embedding(x)
+        x = self.encoders(x)
+        x = self.layernorm(x)
+        logits = self.vit_head(x)
+        return logits
