@@ -11,14 +11,16 @@ import os
 import math
 BATCH_SIZE = 16
 IMAGE_SIZE = 800
-PATCH_EMBD = 0
+
 PATCH_SIZE = 16
+PATCH_NUM = (IMAGE_SIZE // PATCH_SIZE) ** 2
+PATCH_EMBD = PATCH_SIZE ** 2 * 3  # Square patchs with 3 channels R,G,B
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 transform = transforms.Compose([
     transforms.Resize((800, 800)),
-    # transforms.RandomHorizontalFlip(),
+    transforms.RandomHorizontalFlip(0.2),
     transforms.ToTensor(),  # Converts to [C, H, W] and normalizes to [0,1]
     # transforms.Normalize(mean=[0.5]*3, std=[0.5]*3)  # Optional
     
@@ -29,17 +31,19 @@ transform = transforms.Compose([
 # root/train/class2/*.jpg
 # root/val/class1/*.jpg
 
+
+'''
 train_dataset = datasets.ImageFolder(root='./data/train', transform=transform)
 val_dataset = datasets.ImageFolder(root='./data/val', transform=transform)
 
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
-
+'''
 
 
 # patch_dim : int = 0
-patch_size : int = 16
-def get_patches(images: torch.Tensor, patch_size: int):
+# patch_size : int = 16
+def get_patch_embedding(images: torch.Tensor, patch_size: int = PATCH_SIZE):
     """
     images: Tensor of shape [B, C, H, W]
     patch_size: patch size (e.g., 16)
@@ -58,7 +62,8 @@ def get_patches(images: torch.Tensor, patch_size: int):
 
     patches = patches.permute(0, 2, 1, 3, 4)  # [B, num_patches, C, patch_size, patch_size]
     patches = patches.contiguous().view(B, -1, C * patch_size * patch_size)
-    PATCH_EMBD = C*patch_size*patch_size
+    # PATCH_EMBD = C*patch_size*patch_size
+    
     # [B, num_patches, patch_dim]
 
     return patches
@@ -69,12 +74,21 @@ class Embedding(nn.Module):
         
         super().__init__()
         self.patch_dim = patch_dim
-        self.pos_embedding = nn.Embedding(800*800 // patch_size*patch_size, patch_dim)
+        self.patch_num = (IMAGE_SIZE // patch_size) ** 2                                #(800 / 16) ^ 2
+        self.patch_size = patch_size
+        self.pos_embedding = nn.Parameter(torch.randn(1,self.patch_num+1,self.patch_dim))
+        self.cls_token = nn.Parameter(torch.randn(1,1,self.patch_dim))
+
 
     def forward(self,x : torch.Tensor):
-        cls_token = torch.zeros(BATCH_SIZE,1,self.patch_dim) # adding a cls token
-        x = torch.cat([cls_token,x],dim=1)
-        x = x + self.pos_embedding(x)
+        B = x.shape[0]
+
+        x = get_patch_embedding(x,self.patch_size)
+        clc_tokens = self.cls_token.expand(B,-1,-1)
+
+        x = torch.cat([x,clc_tokens],dim=1)
+        x = x + self.pos_embedding
+        
         return x
 
 class MultiHeadAttention(nn.Module):
@@ -109,7 +123,7 @@ class MultiHeadAttention(nn.Module):
 
 class EncoderBlock(nn.Module):
     def __init__(self,dmodel : int = PATCH_EMBD,ff_hidden_dim : int = 2048, dropout : float = 0.1):
-        super.__init__()
+        super().__init__()
         self.self_attention = MultiHeadAttention()
         self.norm1 = nn.LayerNorm(dmodel)
         self.norm2 = nn.LayerNorm(dmodel)
@@ -135,6 +149,7 @@ class EncoderBlock(nn.Module):
     
 class ViT(nn.Module):
     def __init__(self,dmodel : int = PATCH_EMBD):
+        super().__init__()
         self.embedding = Embedding()
         self.encoders = nn.Sequential(*[EncoderBlock() for _ in range(6)])
         self.layernorm = nn.LayerNorm(dmodel)
@@ -146,3 +161,6 @@ class ViT(nn.Module):
         x = self.layernorm(x)
         logits = self.vit_head(x)
         return logits
+    
+
+model = ViT()
