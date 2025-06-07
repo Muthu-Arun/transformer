@@ -84,9 +84,9 @@ class Embedding(nn.Module):
         B = x.shape[0]
 
         x = get_patch_embedding(x,self.patch_size)
-        clc_tokens = self.cls_token.expand(B,-1,-1)
+        cls_tokens = self.cls_token.expand(B,-1,-1)
 
-        x = torch.cat([x,clc_tokens],dim=1)
+        x = torch.cat([cls_tokens,x],dim=1)
         x = x + self.pos_embedding
         
         return x
@@ -162,5 +162,8 @@ class ViT(nn.Module):
         logits = self.vit_head(x)
         return logits
     
+# Example usage
+
 
 model = ViT()
+model.to(device)
