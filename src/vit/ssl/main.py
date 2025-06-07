@@ -201,7 +201,7 @@ class EncoderBlock(nn.Module):
         return self.norm2(x + ffn_output)  # Residual connection
 
 class DecoderBlock(nn.Module):
-    def __init__(self, d_model: int = PATCH_EMBD, num_heads: int = 8, ff_hidden_dim: int = 2048, dropout: float = 0.1):
+    def __init__(self,d_model: int = PATCH_EMBD, num_heads: int = 8, ff_hidden_dim: int = 2048, dropout: float = 0.1):
         super().__init__()
         self.self_attn = SelfAttention(d_model, num_heads)
         self.ffn = nn.Sequential(
@@ -221,19 +221,51 @@ class DecoderBlock(nn.Module):
         return self.norm2(x + ffn_output)  # Residual connection
 
 class Transformer(nn.Module):
-    def __init__(self, num_layers: int = 6, d_model: int = PATCH_EMBD, num_heads: int = 8, ff_hidden_dim: int = 2048, dropout: float = 0.1):
-        super().__init__()
-        # self.patch_embedding = PatchEmbedding(patch_size=PATCH_SIZE)
-        self.decoder_blocks = nn.ModuleList([
-            DecoderBlock(d_model, num_heads, ff_hidden_dim, dropout) for _ in range(num_layers)
-        ])
+    def __init__(self, num_encoder_layers: int = 6, num_decoder_layers: int = 6, d_model: int = PATCH_EMBD, mask_ratio : float = 0.5,num_heads: int = 8, ff_hidden_dim: int = 2048, dropout: float = 0.1):
+        super(Transformer, self).__init__()
+        self.encoder_layers = nn.ModuleList([EncoderBlock(d_model, num_heads, ff_hidden_dim, dropout) for _ in range(num_encoder_layers)])
+        self.decoder_layers = nn.ModuleList([DecoderBlock(d_model, num_heads, ff_hidden_dim, dropout) for _ in range(num_decoder_layers)])
+        self.output_layer = nn.Linear(d_model, PATCH_EMBD)
+        self.mask_ratio = mask_ratio
+        self.visible_patch_num = int(PATCH_NUM * (1 - mask_ratio))
+        self.masked_patch_num = PATCH_NUM - self.visible_patch_num
+        self.mask = self.masked_patches = self.visible_patches = torch.Tensor()
         
-    def forward(self, images: torch.Tensor):
-        patches = get_patch_embedding(images)  # [B, num_patches, patch_dim]
-        x = patches
-        for block in self.decoder_blocks:
-            x = block(x)
-        return x
+        self.mask_token = nn.Parameter(torch.randn(1, 1, d_model))  # Mask token for masked patches
+        
+
+        self.encoder_pos_embedding = nn.Parameter(torch.randn(1, self.visible_patch_num, d_model))
+        self.decoder_pos_embedding = nn.Parameter(torch.randn(1, PATCH_NUM, d_model))
+    
+    def forward(self, x: torch.Tensor):
+        x = get_patch_embedding(x)  # [B, PATCH_NUM, d_model]
+
+        # Masking
+        self.visible_patches, self.masked_patches, self.mask = separate_mask_and_patches_by_gpt(x)
+        B = x.size(0)
+        
+        # Encode only visible patches
+        self.visible_patches = self.visible_patches + self.encoder_pos_embedding  # [B, N_vis, d_model]
+        for layer in self.encoder_layers:
+            self.visible_patches = layer(self.visible_patches)
+
+        # Prepare decoder input: insert mask tokens in masked positions
+        mask_tokens = self.mask_token.expand(B, self.masked_patch_num, x.size(-1))  # [B, N_mask, d_model]
+        
+        full_sequence = torch.empty(B, PATCH_NUM, x.size(-1), device=x.device)
+        full_sequence[self.mask == 0] = self.visible_patches
+        full_sequence[self.mask == 1] = mask_tokens
+
+        # Add decoder pos embedding
+        full_sequence = full_sequence + self.decoder_pos_embedding  # [B, PATCH_NUM, d_model]
+        
+        # Decode
+        x = full_sequence
+        for layer in self.decoder_layers:
+            x = layer(x)
+
+        return self.output_layer(x)  # [B, PATCH_NUM, PATCH_EMBD]
+
     
 model = Transformer()
 # model.compile(
