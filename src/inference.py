@@ -95,25 +95,29 @@ class Transformer(nn.Module):
         return logits
     
 # embeddingLayer = Embedding()
-testString = "T"
+testString = "Tech"
 model = Transformer()
 model.load_state_dict(torch.load("first_iter.pth"))
 model.to(device)
+model = torch.compile(model)
 model.eval()
-def get_batch(text, block_size=256, batch_size=32):
+def get_batch(text, block_size=256, batch_size=64):
     ix = torch.randint(0, len(text) - block_size - 1, (batch_size,))
     x = torch.stack([torch.tensor([lookup_table[c] for c in text[i:i+block_size]]) for i in ix]).to(device)
     y = torch.stack([torch.tensor([lookup_table[c] for c in text[i+1:i+block_size+1]]) for i in ix]).to(device)
     return x, y
-for i in range(255):
-    inputTensor = torch.tensor([lookup_table[c] for c in testString]).unsqueeze(0).to(device)
+for i in range(2550):
+    context = testString[-max_len:]
+    inputTensor = torch.tensor([lookup_table[c] for c in context]).unsqueeze(0).to(device)
     logits = model(inputTensor)
     logits = logits[0,-1,:]
-    token = torch.argmax(logits)
-    print(token)
+    token = torch.softmax(logits,dim=0)
+    token = torch.multinomial(token,num_samples=1)
+    # print(token)
     char_tkn = reverse_lookup_table[token.item()]
     testString += char_tkn
 
     # torch.argmax(logits)
-
+with open("data/generated.txt","w") as fout:
+    fout.write(testString)
 print(testString)

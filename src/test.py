@@ -4,6 +4,7 @@ import math
 import torch.optim as optim
 import pickle
 device = torch.device("cuda"if torch.cuda.is_available() else "cpu")
+torch.set_float32_matmul_precision('high')
 input_fh = open("data/input.txt","r")
 lookup_table = dict()
 reverse_lookup_table = dict()
@@ -139,10 +140,11 @@ testString = "T"
 # after_self_attention = attention(output)
 # print("After Attention : ",after_self_attention)
 model = Transformer().to(device)
-optimizer = optim.AdamW(model.parameters(),lr=1e-4)
+compiled_model = torch.compile(model)
+optimizer = optim.AdamW(compiled_model.parameters(),lr=1e-4)
 loss_fn = nn.CrossEntropyLoss()
 text = open("data/input.txt").read()
-def get_batch(text, block_size=256, batch_size=32):
+def get_batch(text, block_size=256, batch_size=64):
     ix = torch.randint(0, len(text) - block_size - 1, (batch_size,))
     x = torch.stack([torch.tensor([lookup_table[c] for c in text[i:i+block_size]]) for i in ix]).to(device)
     y = torch.stack([torch.tensor([lookup_table[c] for c in text[i+1:i+block_size+1]]) for i in ix]).to(device)
@@ -150,7 +152,7 @@ def get_batch(text, block_size=256, batch_size=32):
 
 for step in range(5000):
     x_batch, y_batch = get_batch(text)
-    logits = model(x_batch)
+    logits = compiled_model(x_batch)
     B, T, V = logits.shape
     loss = loss_fn(logits.view(B*T, V), y_batch.view(B*T))
     optimizer.zero_grad()
@@ -160,11 +162,11 @@ for step in range(5000):
     if step % 100 == 0:
         print(f"Step {step} | Loss: {loss.item():.4f}")
 # model.forward(inputTensor)
-model.eval()
+compiled_model.eval()
 
 for i in range(255):
     inputTensor = torch.tensor([lookup_table[c] for c in testString]).unsqueeze(0).to(device)
-    logits = model(inputTensor)
+    logits = compiled_model(inputTensor)
     logits = logits[0,-1,:]
     token = torch.argmax(logits)
     print(token)
