@@ -111,7 +111,7 @@ def seperate_mask_and_patches(input_tensor: torch.Tensor, mask_ratio: float = 0.
     input_tensor = input_tensor[:, ~torch.tensor(indices, dtype=torch.bool), :]  # Remaining patches
     return input_tensor, masked_patches
 
-import torch
+
 
 def separate_mask_and_patches_by_gpt(input_tensor: torch.Tensor, mask_ratio: float = 0.5) -> tuple:
     """
@@ -131,9 +131,9 @@ def separate_mask_and_patches_by_gpt(input_tensor: torch.Tensor, mask_ratio: flo
     num_masked = int(num_patches * mask_ratio)
 
     # For each batch element, generate mask indices independently
-    masks = []
-    visible_list = []
-    masked_list = []
+    masks = masked_list = visible_list = []
+    
+
 
     for b in range(B):
         perm = torch.randperm(num_patches)
