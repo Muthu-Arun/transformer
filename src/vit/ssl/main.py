@@ -170,7 +170,7 @@ class SelfAttention(nn.Module):
 
     def forward(self, x: torch.Tensor):
         B, N, _ = x.shape
-        qkv = self.qkv_proj(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        qkv : torch.Tensor = self.qkv_proj(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
         
         attn_scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
