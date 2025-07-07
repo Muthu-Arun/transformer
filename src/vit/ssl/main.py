@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 import torch.nn.functional as F
-from .ImagePreprocessing import preprocess_image
+from ImagePreprocessing import create_batch,get_images
 # Vision Transformer (ViT) for Self-Supervised Learning (SSL)
 # This code implements a Vision Transformer model for self-supervised learning tasks.
 # Constants
@@ -131,7 +131,9 @@ def separate_mask_and_patches_by_gpt(input_tensor: torch.Tensor, mask_ratio: flo
     num_masked = int(num_patches * mask_ratio)
 
     # For each batch element, generate mask indices independently
-    masks = masked_list = visible_list = []
+    masks = []
+    visible_list = []
+    masked_list = [] 
     
 
 
@@ -268,6 +270,10 @@ class Transformer(nn.Module):
 
     
 model = Transformer()
+image_files = get_images("data")
+input_tensor = create_batch(image_files,32,0)
+test_input_tensor = torch.randn((32,3,800,800))
+model(test_input_tensor)
 # model.compile(
 #     optimizer=torch.optim.Adam(model.parameters(), lr=1e-4),
 #     loss_fn=nn.CrossEntropyLoss(),
