@@ -106,7 +106,7 @@ def get_batch(text, block_size=256, batch_size=64):
     x = torch.stack([torch.tensor([lookup_table[c] for c in text[i:i+block_size]]) for i in ix]).to(device)
     y = torch.stack([torch.tensor([lookup_table[c] for c in text[i+1:i+block_size+1]]) for i in ix]).to(device)
     return x, y
-for i in range(2550):
+for i in range(5000):
     context = testString[-max_len:]
     inputTensor = torch.tensor([lookup_table[c] for c in context]).unsqueeze(0).to(device)
     logits = model(inputTensor)

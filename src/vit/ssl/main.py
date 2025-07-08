@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 import torch.nn.functional as F
 from ImagePreprocessing import create_batch,get_images
+from ImageIO import display_image_tensor
 # Vision Transformer (ViT) for Self-Supervised Learning (SSL)
 # This code implements a Vision Transformer model for self-supervised learning tasks.
 # Constants
@@ -275,10 +276,10 @@ image_files = get_images("data")
 input_tensor = create_batch(image_files,32,0)
 test_input_tensor = torch.randn((1,3,800,800))
 output: torch.Tensor = model(test_input_tensor)
-
+display_image_tensor(output)
 print("Size : ", output.shape)
 print("Output\n",output)
-
+ 
 # print("Compiled Model\n",compiled_model(test_input_tensor))
 # model.compile(
 #     optimizer=torch.optim.Adam(model.parameters(), lr=1e-4),
