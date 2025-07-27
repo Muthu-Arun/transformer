@@ -2,18 +2,19 @@ import torch
 import torch.nn as nn
 import math
 import torch.nn.functional as F
+import torch.optim as optim
 from ImagePreprocessing import create_batch,get_images
-from ImageIO import display_image_tensor
+from ImageIO import display_image_tensor,reconstruct_image_gpt
 # Vision Transformer (ViT) for Self-Supervised Learning (SSL)
 # This code implements a Vision Transformer model for self-supervised learning tasks.
 # Constants
 BATCH_SIZE = 1
 IMAGE_SIZE = 800
-
+TRAIN_STEPS = 100
 PATCH_SIZE = 16
 PATCH_NUM = (IMAGE_SIZE // PATCH_SIZE) ** 2
 PATCH_EMBD = PATCH_SIZE ** 2 * 3  # Square patchs with 3 channels R,G,B
-
+DATA_OFFSET = 0
 def get_patch_embedding(images: torch.Tensor, patch_size: int = PATCH_SIZE):
     """
     images: Tensor of shape [B, C, H, W]
@@ -87,31 +88,6 @@ class PatchEmbedding(nn.Module):
         return f"patch_size={self.patch_size}, in_channels={self.in_channels}, patch_dim={self.patch_dim}"
 
 ''' 
-
-def seperate_mask_and_patches(input_tensor: torch.Tensor, mask_ratio: float = 0.5) -> tuple:
-    """
-    Separates masked patches from the input tensor based on a given mask ratio.
-    
-    Args:
-        input_tensor (torch.Tensor): Input tensor of shape [B, num_patches, patch_dim].
-        mask_ratio (float): Ratio of patches to be masked.
-        
-    Returns:
-        tuple: A tuple containing:
-            - masked_patches (torch.Tensor): Patches with masked values set to zero.
-            - mask (torch.Tensor): Boolean mask indicating which patches are masked.
-    """
-    B, num_patches, patch_dim = input_tensor.shape
-    num_masked = int(num_patches * mask_ratio)
-    
-    # Generate random indices for masking
-    indices = torch.randperm(num_patches)[:num_masked]
-    
-    masked_patches = input_tensor.clone()
-    masked_patches = masked_patches[:, indices, :]  # Select patches to be masked
-    input_tensor = input_tensor[:, ~torch.tensor(indices, dtype=torch.bool), :]  # Remaining patches
-    return input_tensor, masked_patches
-
 
 
 def separate_mask_and_patches_by_gpt(input_tensor: torch.Tensor, mask_ratio: float = 0.5) -> tuple:
@@ -228,7 +204,7 @@ class Transformer(nn.Module):
         super(Transformer, self).__init__()
         self.encoder_layers = nn.ModuleList([EncoderBlock(d_model, num_heads, ff_hidden_dim, dropout) for _ in range(num_encoder_layers)])
         self.decoder_layers = nn.ModuleList([DecoderBlock(d_model, num_heads, ff_hidden_dim, dropout) for _ in range(num_decoder_layers)])
-        self.output_layer = nn.Linear(d_model, PATCH_EMBD)
+        self.output_layer = nn.Linear(d_model, d_model)
         self.mask_ratio = mask_ratio
         self.visible_patch_num = int(PATCH_NUM * (1 - mask_ratio))
         self.masked_patch_num = PATCH_NUM - self.visible_patch_num
@@ -256,8 +232,10 @@ class Transformer(nn.Module):
         mask_tokens = self.mask_token.expand(B, self.masked_patch_num, x.size(-1))  # [B, N_mask, d_model]
         
         full_sequence = torch.empty(B, PATCH_NUM, x.size(-1), device=x.device)
-        full_sequence[self.mask == 0] = self.visible_patches
-        full_sequence[self.mask == 1] = mask_tokens
+        for b in range(B):
+
+            full_sequence[b][self.mask[b] == 0] = self.visible_patches[b]
+            full_sequence[b][self.mask[b] == 1] = mask_tokens[b]
 
         # Add decoder pos embedding
         full_sequence = full_sequence + self.decoder_pos_embedding  # [B, PATCH_NUM, d_model]
@@ -271,18 +249,38 @@ class Transformer(nn.Module):
 
     
 model = Transformer()
-# compiled_model = torch.compile(Transformer())
 image_files = get_images("data")
+optimizer = optim.AdamW(model.parameters(),lr=3e-4)
+""""
 input_tensor = create_batch(image_files,32,0)
-test_input_tensor = torch.randn((1,3,800,800))
-output: torch.Tensor = model(test_input_tensor)
+# compiled_model = torch.compile(Transformer())
+
+
+input_tensor = input_tensor[0]
+input_tensor = input_tensor.unsqueeze(0)
+test_input_tensor = torch.randn((2,3,800,800))
+output: torch.Tensor = model(input_tensor)
+
+
+# display_image_tensor(input_tensor)
 display_image_tensor(output)
+
+
+recon_tensor = reconstruct_image_gpt(output,16,800)
+
+display_image_tensor(recon_tensor)
 print("Size : ", output.shape)
 print("Output\n",output)
- 
-# print("Compiled Model\n",compiled_model(test_input_tensor))
-# model.compile(
-#     optimizer=torch.optim.Adam(model.parameters(), lr=1e-4),
-#     loss_fn=nn.CrossEntropyLoss(),
-#     metrics=['accuracy']
-# )
+"""
+for step in range(TRAIN_STEPS):
+    input_tensor, DATA_OFFSET = create_batch(image_files, 4, DATA_OFFSET)
+    input_tensor_val = get_patch_embedding(input_tensor.clone())
+    output = model(input_tensor)
+    loss = torch.nn.functional.mse_loss(output, input_tensor_val)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    print("Loss : ", loss.item())
+    
+    
+        

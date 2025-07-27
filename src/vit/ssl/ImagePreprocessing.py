@@ -52,19 +52,7 @@ def get_images(root_dir: str) -> tuple:
 
 
 def preprocess_image_tensor(image: Image.Image, image_size: int = 800):
-    """
-    Preprocess an image for input into a Vision Transformer model.
 
-    Args:
-        image_path (str): Path to the image file.
-        image_size (int): Desired size of the image (default is 800).
-
-    Returns:
-        Image.Image: Preprocessed image.
-    """
-    # Load the image
-    # image = Image.open(image_path).convert("RGB")
-    # Resize the image
     transform = transforms.Compose([
         transforms.Resize((image_size, image_size)),  # Resize to 800x800
         # Random horizontal flip with a probability of 0.2
@@ -83,21 +71,21 @@ def create_batch(image_files: tuple, batch_size: int, offset: int):
         for elem in range(batch_size):
             images.append(transform(Image.open(
                 image_files[elem+offset]).convert("RGB")))
-        return torch.stack(images)
+        return torch.stack(images), offset+batch_size
     for elem in range(batch_size):
         if len(image_files) >= elem+offset+1:
             images.append(transform(Image.open(
                 image_files[elem+offset]).convert("RGB")))
         else:
-            break
-    return torch.stack(images)
+            return torch.stack(images), offset+elem+1
+    
 
-
+"""
 image_files = get_images("data")
 image_tensors: torch.Tensor = create_batch(image_files, 32, 0)
 print(image_tensors)
 print("Shape : ", image_tensors.shape)
-
+"""
 '''
 img_tensor = decode_image("/home/arun/dev/transformer/data/blue.png")
 # image = preprocess_image("/home/arun/dev/transformer/data/blue.png")
