@@ -10,8 +10,10 @@ def display_image_tensor(input: torch.Tensor) :
     image: PIL.Image.Image = to_pil(input.squeeze())
     image.show()
     
-def save_image_tensor(path: str = "data/output/"):
-    pass
+def save_image_tensor(image: torch.Tensor,name: str):
+    to_pil = transforms.ToPILImage()
+    pil_image: PIL.Image.Image = to_pil(image.squeeze())
+    pil_image.save(name)
     
     
 def reconstruct_image(image: torch.Tensor, patch_size: int, image_size: int) -> torch.Tensor:

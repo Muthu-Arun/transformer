@@ -4,7 +4,7 @@ import math
 import torch.nn.functional as F
 import torch.optim as optim
 from ImagePreprocessing import create_batch,get_images
-from ImageIO import display_image_tensor,reconstruct_image_gpt
+from ImageIO import display_image_tensor,reconstruct_image_gpt,save_image_tensor
 # Vision Transformer (ViT) for Self-Supervised Learning (SSL)
 # This code implements a Vision Transformer model for self-supervised learning tasks.
 # Constants
@@ -272,6 +272,7 @@ display_image_tensor(recon_tensor)
 print("Size : ", output.shape)
 print("Output\n",output)
 """
+"""
 for step in range(TRAIN_STEPS):
     input_tensor, DATA_OFFSET = create_batch(image_files, 4, DATA_OFFSET)
     input_tensor_val = get_patch_embedding(input_tensor.clone())
@@ -282,5 +283,19 @@ for step in range(TRAIN_STEPS):
     optimizer.step()
     print("Loss : ", loss.item())
     
-    
-        
+""" 
+# train with just one batch and optimize for it
+for step in range(TRAIN_STEPS):
+    DATA_OFFSET = 0
+    input_tensor, DATA_OFFSET = create_batch(image_files, 4, DATA_OFFSET)
+    input_tensor_val = get_patch_embedding(input_tensor.clone())
+    output = model(input_tensor)
+    loss = torch.nn.functional.mse_loss(output, input_tensor_val)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    print("Loss : ", loss.item())
+
+    if(step % 1 == 0):
+        recon_image = reconstruct_image_gpt(output,16,800)
+        save_image_tensor(recon_image,"data/output/"+str(step)+".jpeg")        
