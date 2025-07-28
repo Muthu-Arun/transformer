@@ -15,6 +15,8 @@ PATCH_SIZE = 16
 PATCH_NUM = (IMAGE_SIZE // PATCH_SIZE) ** 2
 PATCH_EMBD = PATCH_SIZE ** 2 * 3  # Square patchs with 3 channels R,G,B
 DATA_OFFSET = 0
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def get_patch_embedding(images: torch.Tensor, patch_size: int = PATCH_SIZE):
     """
     images: Tensor of shape [B, C, H, W]
@@ -248,7 +250,7 @@ class Transformer(nn.Module):
         return self.output_layer(x)  # [B, PATCH_NUM, PATCH_EMBD]
 
     
-model = Transformer()
+model = Transformer().to(device)
 image_files = get_images("data")
 optimizer = optim.AdamW(model.parameters(),lr=3e-4)
 """"
@@ -288,6 +290,7 @@ for step in range(TRAIN_STEPS):
 for step in range(TRAIN_STEPS):
     DATA_OFFSET = 0
     input_tensor, DATA_OFFSET = create_batch(image_files, 4, DATA_OFFSET)
+    input_tensor = input_tensor.to(device)
     input_tensor_val = get_patch_embedding(input_tensor.clone())
     output = model(input_tensor)
     loss = torch.nn.functional.mse_loss(output, input_tensor_val)
