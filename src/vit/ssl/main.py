@@ -10,7 +10,7 @@ from ImageIO import display_image_tensor,reconstruct_image_gpt,save_image_tensor
 # Constants
 BATCH_SIZE = 1
 IMAGE_SIZE = 800
-TRAIN_STEPS = 100
+TRAIN_STEPS = 500
 PATCH_SIZE = 16
 PATCH_NUM = (IMAGE_SIZE // PATCH_SIZE) ** 2
 PATCH_EMBD = PATCH_SIZE ** 2 * 3  # Square patchs with 3 channels R,G,B
@@ -251,6 +251,7 @@ class Transformer(nn.Module):
 
     
 model = Transformer().to(device)
+model = torch.compile(model)
 image_files = get_images("data")
 optimizer = optim.AdamW(model.parameters(),lr=3e-4)
 """"
@@ -294,11 +295,12 @@ for step in range(TRAIN_STEPS):
     input_tensor_val = get_patch_embedding(input_tensor.clone())
     output = model(input_tensor)
     loss = torch.nn.functional.mse_loss(output, input_tensor_val)
+    loss = torch.nn.functional.l1_loss(output,input_tensor_val)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     print("Loss : ", loss.item())
 
-    if(step % 1 == 0):
+    if(step % 50 == 0):
         recon_image = reconstruct_image_gpt(output,16,800)
         save_image_tensor(recon_image,"data/output/"+str(step)+".jpeg")        
