@@ -6,6 +6,6 @@ In this Repo I've experimented with Decoder only Auto regressive text generation
   
   **Trained on Tiny Shakespeare Dataset on an RTX3050 for 5000 Steps with Batch size of 64**
 
-**I'm yet to train the ViT MAE Model as a single image forward pass requires atleast 3.8 GB of VRAM**
-**The goal is to pre-train the model on unlabelled images so it picked up in common features in images, and then discard the decoder and add a classifier head to finetune the model.**
+**I'm yet to train the ViT MAE Model as a single image forward pass requires atleast 3.8 GB of VRAM.**
+**The goal is to pre-train the model on unlabelled images so it can pick up in common features in images, and then discard the decoder and add a classifier head to finetune the model.**
   
