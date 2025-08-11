@@ -8,7 +8,7 @@ from ImageIO import display_image_tensor,reconstruct_image_gpt,save_image_tensor
 # Vision Transformer (ViT) for Self-Supervised Learning (SSL)
 # This code implements a Vision Transformer model for self-supervised learning tasks.
 # Constants
-BATCH_SIZE = 1
+BATCH_SIZE = 16
 IMAGE_SIZE = 800
 TRAIN_STEPS = 500
 PATCH_SIZE = 16
@@ -288,9 +288,13 @@ for step in range(TRAIN_STEPS):
     
 """ 
 # train with just one batch and optimize for it
-for step in range(TRAIN_STEPS):
-    DATA_OFFSET = 0
-    input_tensor, DATA_OFFSET = create_batch(image_files, 4, DATA_OFFSET)
+for step in range(TRAIN_STEPS):    
+    try:
+        input_tensor, DATA_OFFSET = create_batch(image_files, BATCH_SIZE, DATA_OFFSET)
+    except Exception as e:
+        print("Training Files are complete")
+        break
+    
     input_tensor = input_tensor.to(device)
     input_tensor_val = get_patch_embedding(input_tensor.clone())
     output = model(input_tensor)
@@ -301,6 +305,7 @@ for step in range(TRAIN_STEPS):
     optimizer.step()
     print("Loss : ", loss.item())
 
-    if(step % 50 == 0):
+    if(step % 10 == 0):
         recon_image = reconstruct_image_gpt(output,16,800)
-        save_image_tensor(recon_image,"data/output/"+str(step)+".jpeg")        
+        # save_image_tensor(recon_image,"data/output/"+str(step)+".jpeg")     
+        torch.save(model.state_dict())   
