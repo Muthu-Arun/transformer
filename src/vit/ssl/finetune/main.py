@@ -8,6 +8,7 @@ from ImageIO import display_image_tensor,reconstruct_image_gpt,save_image_tensor
 # Vision Transformer (ViT) for Self-Supervised Learning (SSL)
 # This code implements a Vision Transformer model for self-supervised learning tasks.
 # Constants
+CLASSIFIER_HIDDEN_DIM = 4096
 BATCH_SIZE = 16
 IMAGE_SIZE = 800
 TRAIN_STEPS = 500
@@ -200,6 +201,27 @@ class DecoderBlock(nn.Module):
         x = self.norm1(x + attn_output)  # Residual connection
         ffn_output = self.ffn(x)
         return self.norm2(x + ffn_output)  # Residual connection
+class ClassificationHead(nn.Module):
+    def __init__(self,cl_head : int, d_model: int = PATCH_EMBD, dropout: float = 0.2):
+        super().__init__()
+        self.classifier0 = nn.Linear(d_model, CLASSIFIER_HIDDEN_DIM)
+        self.classifier1 = nn.Linear(CLASSIFIER_HIDDEN_DIM, CLASSIFIER_HIDDEN_DIM)
+        self.classifier_head = nn.Liner(CLASSIFIER_HIDDEN_DIM, cl_head)
+        self.dropout = dropout
+        
+
+    def forward(self, x: torch.Tensor):
+        x = torch.relu(self.classifier0(x))
+        x = torch.dropout(x,self.dropout)
+
+
+        x = torch.relu(self.classifier1(x))
+        x = torch.dropout(x,self.dropout)
+
+        x = torch.softmax(self.classifier_head(x), -1)
+
+        return x
+        
 
 class Transformer(nn.Module):
     def __init__(self, num_encoder_layers: int = 6, num_decoder_layers: int = 6, d_model: int = PATCH_EMBD, mask_ratio : float = 0.5,num_heads: int = 8, ff_hidden_dim: int = 2048, dropout: float = 0.1):

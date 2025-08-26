@@ -299,7 +299,7 @@ for step in range(TRAIN_STEPS):
     input_tensor_val = get_patch_embedding(input_tensor.clone())
     output = model(input_tensor)
     loss = torch.nn.functional.mse_loss(output, input_tensor_val)
-    loss = torch.nn.functional.l1_loss(output,input_tensor_val)
+    
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
