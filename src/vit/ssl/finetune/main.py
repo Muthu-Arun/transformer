@@ -9,7 +9,7 @@ from ImageIO import display_image_tensor,reconstruct_image_gpt,save_image_tensor
 # This code implements a Vision Transformer model for self-supervised learning tasks.
 # Constants
 CLASSIFIER_HIDDEN_DIM = 4096
-BATCH_SIZE = 16
+BATCH_SIZE = 1
 IMAGE_SIZE = 800
 TRAIN_STEPS = 500
 PATCH_SIZE = 16
@@ -206,17 +206,17 @@ class ClassificationHead(nn.Module):
         super().__init__()
         self.classifier0 = nn.Linear(d_model, CLASSIFIER_HIDDEN_DIM)
         self.classifier1 = nn.Linear(CLASSIFIER_HIDDEN_DIM, CLASSIFIER_HIDDEN_DIM)
-        self.classifier_head = nn.Liner(CLASSIFIER_HIDDEN_DIM, cl_head)
+        self.classifier_head = nn.Linear(CLASSIFIER_HIDDEN_DIM, cl_head)
         self.dropout = dropout
         
 
     def forward(self, x: torch.Tensor):
         x = torch.relu(self.classifier0(x))
-        x = torch.dropout(x,self.dropout)
+        x = torch.dropout(x,self.dropout, True)
 
 
         x = torch.relu(self.classifier1(x))
-        x = torch.dropout(x,self.dropout)
+        x = torch.dropout(x,self.dropout, True)
 
         x = torch.softmax(self.classifier_head(x), -1)
 
@@ -227,7 +227,7 @@ class Transformer(nn.Module):
     def __init__(self, num_encoder_layers: int = 6, num_decoder_layers: int = 6, d_model: int = PATCH_EMBD, mask_ratio : float = 0.5,num_heads: int = 8, ff_hidden_dim: int = 2048, dropout: float = 0.1):
         super(Transformer, self).__init__()
         self.encoder_layers = nn.ModuleList([EncoderBlock(d_model, num_heads, ff_hidden_dim, dropout) for _ in range(num_encoder_layers)])
-        self.decoder_layers = nn.ModuleList([DecoderBlock(d_model, num_heads, ff_hidden_dim, dropout) for _ in range(num_decoder_layers)])
+        # self.decoder_layers = nn.ModuleList([DecoderBlock(d_model, num_heads, ff_hidden_dim, dropout) for _ in range(num_decoder_layers)])
         self.output_layer = nn.Linear(d_model, d_model)
         self.mask_ratio = mask_ratio
         self.visible_patch_num = int(PATCH_NUM * (1 - mask_ratio))
@@ -239,41 +239,29 @@ class Transformer(nn.Module):
 
         self.encoder_pos_embedding = nn.Parameter(torch.randn(1, self.visible_patch_num, d_model))
         self.decoder_pos_embedding = nn.Parameter(torch.randn(1, PATCH_NUM, d_model))
-    
+        self.classifier = ClassificationHead(10) 
     def forward(self, x: torch.Tensor):
         x = get_patch_embedding(x)  # [B, PATCH_NUM, d_model]
 
         # Masking
-        self.visible_patches, self.masked_patches, self.mask = separate_mask_and_patches_by_gpt(x)
+        # self.visible_patches, self.masked_patches, self.mask = separate_mask_and_patches_by_gpt(x)
         B = x.size(0)
+        for layer in self.encoder_layers:
+            x = layer(x)
         
         # Encode only visible patches
-        self.visible_patches = self.visible_patches + self.encoder_pos_embedding  # [B, N_vis, d_model]
-        for layer in self.encoder_layers:
-            self.visible_patches = layer(self.visible_patches)
+        # self.visible_patches = self.visible_patches + self.encoder_pos_embedding  # [B, N_vis, d_model]
+        # for layer in self.encoder_layers:
+            # self.visible_patches = layer(self.visible_patches)
 
-        # Prepare decoder input: insert mask tokens in masked positions
-        mask_tokens = self.mask_token.expand(B, self.masked_patch_num, x.size(-1))  # [B, N_mask, d_model]
-        
-        full_sequence = torch.empty(B, PATCH_NUM, x.size(-1), device=x.device)
-        for b in range(B):
 
-            full_sequence[b][self.mask[b] == 0] = self.visible_patches[b]
-            full_sequence[b][self.mask[b] == 1] = mask_tokens[b]
 
-        # Add decoder pos embedding
-        full_sequence = full_sequence + self.decoder_pos_embedding  # [B, PATCH_NUM, d_model]
-        
-        # Decode
-        x = full_sequence
-        for layer in self.decoder_layers:
-            x = layer(x)
-
-        return self.output_layer(x)  # [B, PATCH_NUM, PATCH_EMBD]
+        x =  self.output_layer(x)  # [B, PATCH_NUM, PATCH_EMBD]
+        return self.classifier(x)
 
     
 model = Transformer().to(device)
-model = torch.compile(model)
+# model = torch.compile(model)
 image_files = get_images("data")
 optimizer = optim.AdamW(model.parameters(),lr=3e-4)
 """"
