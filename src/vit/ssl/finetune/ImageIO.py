@@ -54,7 +54,7 @@ def reconstruct_image_gpt(patches: torch.Tensor, patch_size: int, image_size: in
 
     # Use fold to reconstruct
     output = F.fold(
-        patches,                             # [B, C*patch_area, num_patches]
+        patches,                             
         output_size=(image_size, image_size),
         kernel_size=(patch_size, patch_size),
         stride=(patch_size, patch_size)
@@ -67,5 +67,4 @@ test_tensor = torch.randint(0,255,(3,800,800),dtype=torch.uint8)
 test_recon = torch.randn(1,2500,768)
 recon_image = reconstruct_image_gpt(test_recon,16,800)
 print(recon_image.shape)
-# display_image_tensor(test_tensor)
-# reconstruct_image()
+]
