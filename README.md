@@ -1,4 +1,4 @@
-In this Repo I've experimented with Decoder only Auto regressive text generation model, and Vision Transformer(Masted Auto Encoders) pre-training.
+In this Repo I've experimented with Decoder only Auto regressive text generation model, and Vision Transformer(Masked Auto Encoders) pre-training.
 
 **The Language Model is Built following the GPT-2 Paper, Andrej Karpathy's Video Lectures** 
 
